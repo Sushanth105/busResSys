@@ -2,6 +2,7 @@ from fastapi import APIRouter,Depends,HTTPException,Response,Request
 from sqlmodel import Session,select
 from database import getSession
 from models.Users import Users
+from models.userRole import UserRole
 from models.RefreshToken import RefreshToken
 from dto.userDto import UserCreate,UserLogin
 from utils.authUtil import create_access_token,create_refresh_token,hash_password,verify_password,verify_token
@@ -27,7 +28,8 @@ def register(user: UserCreate,session: Session = Depends(getSession)):
             return {'message' : 'User registered success!!'}
         else:
             raise HTTPException(status_code=400, detail="Username already exists")
-    dbUser = Users(name=user.name,email=user.email,password=hash_password(user.password))
+    role: UserRole  = UserRole.USER if user.role == 'user' else UserRole.ADMIN
+    dbUser = Users(name=user.name,email=user.email,password=hash_password(user.password),role=role)
     session.add(dbUser)
     session.commit()
     session.refresh(dbUser)
@@ -61,7 +63,7 @@ def login(user: UserLogin , response: Response, session: Session = Depends(getSe
         value=aToken,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="none",
         max_age=15*60
     )
     
@@ -71,7 +73,7 @@ def login(user: UserLogin , response: Response, session: Session = Depends(getSe
         httponly=True,
         secure=True,
         path="/refresh",
-        samesite="strict",
+        samesite="none",
         max_age=60*60*24*7
     )
     
@@ -80,6 +82,11 @@ def login(user: UserLogin , response: Response, session: Session = Depends(getSe
 @router.post("/refresh")
 def refresh(request: Request , response: Response,session: Session = Depends(getSession)):
     refresh_token = request.cookies.get("refresh_token")
+    if refresh_token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired refresh token"
+        )
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token missing")
     
@@ -87,6 +94,12 @@ def refresh(request: Request , response: Response,session: Session = Depends(get
     
     existing_rToken = session.exec(select(RefreshToken).where(RefreshToken.email == email)).first()
     
+    if existing_rToken is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired refresh token"
+        )
+        
     if not verify_password(refresh_token,existing_rToken.token) :
         raise HTTPException(status_code=401, detail="Unauthorised Refresh token")
     
@@ -103,7 +116,7 @@ def refresh(request: Request , response: Response,session: Session = Depends(get
         value=aToken,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="none",
         max_age=15*60
     )
     
@@ -113,7 +126,7 @@ def refresh(request: Request , response: Response,session: Session = Depends(get
         httponly=True,
         secure=True,
         path="/refresh",
-        samesite="strict",
+        samesite="none",
         max_age=60*60*24*7
     )
     
@@ -121,7 +134,19 @@ def refresh(request: Request , response: Response,session: Session = Depends(get
 
 @router.post("/logout")
 def logout(response : Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.set_cookie(
+        key="access_token",
+        httponly=True,
+        secure=True,
+        samesite="none",
+    )
+    
+    response.set_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=True,
+        path="/refresh",
+        samesite="none",
+    )
     
     return {'message' : "LogOut Success"}

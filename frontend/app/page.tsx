@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Search, MapPin, Calendar, Users, BusFront, Ticket, Star, Handshake, Headphones, Globe, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Search, MapPin, Calendar, Users, BusFront, Ticket, Star, Handshake, Headphones, Globe, Facebook, Instagram, Twitter, LogOut, X } from 'lucide-react';
 
 // Main App component representing the entire homepage
 const App = () => {
@@ -11,14 +11,21 @@ const App = () => {
   const [date, setDate] = useState('');
   const [passengers, setPassengers] = useState('');
 
+  // State to control the visibility of the profile modal
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false); 
+
   // Function to handle the bus search
   const handleSearch = () => {
     console.log('Searching for buses:', { from, to, date, passengers });
     // In a real application, this would trigger an API call
   };
-
-  // State to simulate user login status
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Function to handle logout
+  const handleLogout = () => {
+    console.log('User logged out.');
+    setIsProfileModalOpen(false);
+    // In a real app, this would clear authentication tokens
+  };
 
   // Data for popular routes
   const popularRoutes = [
@@ -61,22 +68,14 @@ const App = () => {
             <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">About Us</a>
           </nav>
 
-          {/* Login / Register / User Profile */}
+          {/* Profile Icon and Conditional Logic */}
           <div className="flex items-center space-x-4">
-            {isLoggedIn ? (
-              <a href="#" className="flex items-center space-x-2 p-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors duration-200">
-                <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">JD</div>
-              </a>
-            ) : (
-              <>
-                <button className="hidden sm:inline-block px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-200">
-                  Login
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200">
-                  Register
-                </button>
-              </>
-            )}
+              <button onClick={() => setIsProfileModalOpen(true)} className="flex items-center space-x-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {/* Profile Image */}
+                <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
+                  JD
+                </div>
+              </button>
             {/* Mobile menu button */}
             <button className="md:hidden p-2 rounded-md hover:bg-gray-100 transition-colors duration-200">
               <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -274,6 +273,41 @@ const App = () => {
           &copy; 2024 BusGo. All rights reserved.
         </div>
       </footer>
+
+      {/* --------------------
+        7. PROFILE MODAL
+        --------------------
+      */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 backdrop-blur-2xl flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full relative transform transition-transform duration-300 scale-100">
+            {/* Close button */}
+            <button
+              onClick={() => setIsProfileModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              aria-label="Close modal"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="flex flex-col items-center text-center">
+              <div className="h-20 w-20 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-bold mb-4">
+                JD
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">John Doe</h3>
+              <p className="text-gray-600 text-sm mb-6">john.doe@example.com</p>
+              
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white font-medium rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200"
+              >
+                <LogOut size={20} className="mr-2" />
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

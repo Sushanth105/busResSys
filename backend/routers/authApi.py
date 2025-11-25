@@ -7,7 +7,7 @@ from models.RefreshToken import RefreshToken
 from dto.userDto import UserCreate,UserLogin
 from utils.authUtil import create_access_token,create_refresh_token,hash_password,verify_password,verify_token
 
-router = APIRouter()
+router = APIRouter(tags=["Authetication"])
 
 def get_current_user(request: Request ):
     token = request.cookies.get("access_token")

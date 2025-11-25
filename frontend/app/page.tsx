@@ -1,7 +1,13 @@
 "use client"
 
-import React, { useState } from 'react';
-import { Search, MapPin, Calendar, Users, BusFront, Ticket, Star, Handshake, Headphones, Globe, Facebook, Instagram, Twitter, LogOut, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { 
+  Search, MapPin, Calendar, Users, BusFront, Ticket, Star, 
+  Handshake, Headphones, Globe, Facebook, Instagram, Twitter, 
+  LogOut, X 
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Main App component representing the entire homepage
 const App = () => {
@@ -9,20 +15,83 @@ const App = () => {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [date, setDate] = useState('');
-  const [passengers, setPassengers] = useState('');
+  const [profile, setProfile] = useState({name: "",email: "",role: ""});
+  const router = useRouter();
 
   // State to control the visibility of the profile modal
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false); 
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  const getProfile = async () => {
+    try {
+      let response = await fetch("http://localhost:8000/Profile",{
+        method: "GET",
+        credentials: "include",
+      });
+
+      console.log(response);
+
+      if (response.status === 403 || response.status === 401) {
+        const refreshRes = await fetch("http://localhost:8000/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (!refreshRes.ok) {
+          console.warn("Refresh token invalid or expired");
+          router.push("/login");
+          return;
+        }
+
+        response = await fetch("http://localhost:8000/Profile", {
+          method: "GET",
+          credentials: "include",
+        });
+      }
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      setProfile(data);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  useEffect(() => {
+    getProfile()
+  }, [])
+  
 
   // Function to handle the bus search
   const handleSearch = () => {
-    console.log('Searching for buses:', { from, to, date, passengers });
-    // In a real application, this would trigger an API call
+    // Basic validation
+    if (!from || !to) {
+      alert("Please select a source and destination");
+      return;
+    }
+
+    // Create query parameters
+    const queryParams = new URLSearchParams({
+      from,
+      to,
+      date
+    }).toString();
+
+    // Navigate to the search page with data
+    router.push(`/search?${queryParams}`);
   };
-  
+
   // Function to handle logout
-  const handleLogout = () => {
-    console.log('User logged out.');
+  const handleLogout = async () => {
+    const response = await fetch("http://localhost:8000/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+
+    console.log(await response.json());
+    router.push('/login')
     setIsProfileModalOpen(false);
     // In a real app, this would clear authentication tokens
   };
@@ -48,8 +117,8 @@ const App = () => {
     <div className="bg-gray-50 font-sans text-gray-800">
 
       {/* --------------------
-        1. HEADER / NAVBAR
-        --------------------
+          1. HEADER / NAVBAR
+          -------------------- 
       */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm transition-all duration-300">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -61,21 +130,25 @@ const App = () => {
 
           {/* Navigation Links (Hidden on small screens) */}
           <nav className="hidden md:flex flex-1 justify-center space-x-8 lg:space-x-12">
-            <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Home</a>
-            <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Search Buses</a>
-            <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">My Bookings</a>
-            <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Contact Us</a>
-            <a href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">About Us</a>
+            <Link href="#" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Home</Link>
+            <Link href="/bookings" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">My Bookings</Link>
+            <Link href="/contact" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Contact Us</Link>
+            <Link href="/about" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">About Us</Link>
+            {profile.role === 'admin' && (
+            <Link href="/addBus" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Add bus</Link>)}
           </nav>
 
           {/* Profile Icon and Conditional Logic */}
           <div className="flex items-center space-x-4">
-              <button onClick={() => setIsProfileModalOpen(true)} className="flex items-center space-x-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {/* Profile Image */}
-                <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
-                  JD
-                </div>
-              </button>
+            <button 
+              onClick={() => setIsProfileModalOpen(true)} 
+              className="flex items-center space-x-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {/* Profile Image */}
+              <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
+                {profile.name.charAt(0)}
+              </div>
+            </button>
             {/* Mobile menu button */}
             <button className="md:hidden p-2 rounded-md hover:bg-gray-100 transition-colors duration-200">
               <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -85,14 +158,16 @@ const App = () => {
           </div>
         </div>
       </header>
-      
+
       {/* --------------------
-        2. HERO SECTION
-        --------------------
+          2. HERO SECTION
+          -------------------- 
       */}
-      <section className="relative w-full min-h-screen flex items-center justify-center pt-24 pb-16 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1544620302-38d783dbd636?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1632&q=80')" }}>
+      <section 
+        className="relative w-full min-h-screen flex items-center justify-center pt-24 pb-16 bg-cover bg-center" 
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1544620302-38d783dbd636?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1632&q=80')" }}
+      >
         <div className="absolute inset-0 bg-blue-900 bg-opacity-70 backdrop-blur-sm"></div>
-        
         {/* Search Box */}
         <div className="relative z-10 p-4 w-full max-w-4xl mx-auto">
           <h1 className="text-4xl lg:text-5xl font-extrabold text-white text-center mb-6">Your Journey Starts Here</h1>
@@ -144,23 +219,6 @@ const App = () => {
                   />
                 </div>
               </div>
-
-              {/* Number of Passengers */}
-              <div className="relative">
-                <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">Passengers (Optional)</label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    id="passengers"
-                    type="number"
-                    value={passengers}
-                    onChange={(e) => setPassengers(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow duration-200"
-                    placeholder="1"
-                    min="1"
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Search Button */}
@@ -177,8 +235,8 @@ const App = () => {
       </section>
 
       {/* --------------------
-        3. POPULAR ROUTES
-        --------------------
+          3. POPULAR ROUTES
+          -------------------- 
       */}
       <section className="container mx-auto px-4 py-16">
         <h2 className="text-3xl font-bold text-center mb-10">Popular Routes</h2>
@@ -203,8 +261,8 @@ const App = () => {
       </section>
 
       {/* --------------------
-        4. FEATURES SECTION
-        --------------------
+          4. FEATURES SECTION
+          -------------------- 
       */}
       <section className="bg-gray-100 py-16">
         <div className="container mx-auto px-4">
@@ -220,10 +278,10 @@ const App = () => {
           </div>
         </div>
       </section>
-      
+
       {/* --------------------
-        5. OFFERS SECTION
-        --------------------
+          5. OFFERS SECTION
+          -------------------- 
       */}
       <section className="container mx-auto px-4 py-16">
         <div className="bg-blue-600 text-white rounded-2xl shadow-xl p-8 md:p-12 text-center transform transition-all duration-300 hover:scale-105">
@@ -236,8 +294,8 @@ const App = () => {
       </section>
 
       {/* --------------------
-        6. FOOTER
-        --------------------
+          6. FOOTER
+          -------------------- 
       */}
       <footer className="bg-gray-900 text-gray-300 py-12">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -251,14 +309,12 @@ const App = () => {
               <li><a href="#" className="hover:text-white transition-colors duration-200">Privacy Policy</a></li>
             </ul>
           </div>
-          
           {/* Contact Info */}
           <div>
             <h4 className="text-lg font-bold text-white mb-4">Customer Support</h4>
             <p className="text-sm mb-2">Email: support@busgo.com</p>
             <p className="text-sm">Phone: +91 98765 43210</p>
           </div>
-          
           {/* Social Media */}
           <div>
             <h4 className="text-lg font-bold text-white mb-4">Follow Us</h4>
@@ -275,8 +331,8 @@ const App = () => {
       </footer>
 
       {/* --------------------
-        7. PROFILE MODAL
-        --------------------
+          7. PROFILE MODAL
+          -------------------- 
       */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 backdrop-blur-2xl flex items-center justify-center p-4 z-50 transition-opacity duration-300">
@@ -289,14 +345,12 @@ const App = () => {
             >
               <X size={24} />
             </button>
-            
             <div className="flex flex-col items-center text-center">
               <div className="h-20 w-20 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-bold mb-4">
-                JD
+                {profile.name.charAt(0)}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">John Doe</h3>
-              <p className="text-gray-600 text-sm mb-6">john.doe@example.com</p>
-              
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{profile.name}</h3>
+              <p className="text-gray-600 text-sm mb-6">{profile.email}</p>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white font-medium rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200"

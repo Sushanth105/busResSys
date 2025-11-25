@@ -1,5 +1,5 @@
-from sqlmodel import SQLModel,Field
-from typing import Optional
+from sqlmodel import SQLModel,Field,Relationship
+from typing import Optional,List
 from models.userRole import UserRole
 
 class Users(SQLModel , table = True):
@@ -8,3 +8,5 @@ class Users(SQLModel , table = True):
     email : str = Field(unique=True , index=True)
     password: str
     role: UserRole = Field(default=UserRole.USER)
+    
+    bookings: List['Bookings'] = Relationship(back_populates='user',cascade_delete=True) # type: ignore

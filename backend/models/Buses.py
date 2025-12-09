@@ -12,3 +12,4 @@ class Buses(SQLModel, table=True):
     rating: float = Field(ge=0, le=5)
     
     trips: List["Trips"] = Relationship(back_populates="bus" , cascade_delete=True) # type: ignore
+    seats: List["Seats"] = Relationship(back_populates="bus" , cascade_delete=True) # type: ignore

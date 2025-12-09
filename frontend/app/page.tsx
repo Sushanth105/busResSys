@@ -135,7 +135,12 @@ const App = () => {
             <Link href="/contact" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Contact Us</Link>
             <Link href="/about" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">About Us</Link>
             {profile.role === 'admin' && (
-            <Link href="/addBus" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Add bus</Link>)}
+              <>
+              <Link href="/addRoute" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Add Route</Link>
+              <Link href="/addBus" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Add Bus</Link>
+              <Link href="/addTrip" className="font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200">Add Trip</Link>
+              </>
+            )}
           </nav>
 
           {/* Profile Icon and Conditional Logic */}

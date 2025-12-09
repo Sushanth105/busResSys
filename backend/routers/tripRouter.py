@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, text
 from database import getSession
+from dto.tripSeatDto import TripSeatDetail
 from models.Trips import Trips
-from models.Buses import Buses
-from dto.busDto import AddBusDetail
 from dto.tripDetail import GetTripDetails, AddBusTripDetail
 import routers.busRouter as bRouter
+import routers.tripSeatRouter as tsRouter
 import routers.routeRouter as rRouter
-import random
 from typing import List
 
 router = APIRouter(prefix="/trips", tags=['Trips'])
@@ -15,29 +14,16 @@ router = APIRouter(prefix="/trips", tags=['Trips'])
 @router.post("/")
 def addBusTripDetail(detail: AddBusTripDetail, session: Session = Depends(getSession)):
     try:
-        # 1. Prepare Bus Data
-        addBusDetail = AddBusDetail(
-            operator=detail.operator,
-            bus_number=detail.bus_number,
-            air_type=detail.air_type,
-            seat_type=detail.seat_type,
-            total_seat=detail.total_seat,
-            rating=random.randint(3, 5)
-        )
         
-        # 2. Add Bus 
-        bRouter.addBus(addBusDetail, session)
-        
-        # 3. Retrieve the newly added/existing Bus
         bus_response = bRouter.getBusByNumber(detail.bus_number, session)
-        bus_id = bus_response['data'].id 
+        bus_id = bus_response['data'].id
         
         # 4. Retrieve Route
         route_response = rRouter.getRouteBySE(detail.start_city, detail.end_city, session)
         route_id = route_response['data'].id
 
         # 5. Calculate Available Seats
-        seats_available = random.randint(int(detail.total_seat / 2), detail.total_seat)
+        seats_available = bus_response['data'].total_seat
 
         # 6. Insert Trip - FIX APPLIED HERE
         session.exec(
@@ -82,17 +68,30 @@ def getBusTripDetails(start_city: str, end_city: str, session: Session = Depends
             # Fetch Bus Details for this trip
             bus_response = bRouter.getBusById(trip.bus_id, session)
             bus_data = bus_response['data'] # This is the Pydantic Object
+            
+            tCount= session.exec(
+                text("select count(*) from tripseats where trip_id = :tId"),
+                params={'tId': trip.id}
+            ).one()
+            seatsAvailable = bus_data.total_seat - tCount[0]
+            
+            session.exec(
+                text("update trips set seatsAvailable = :sA where id = :tId"),
+                params={'sA': seatsAvailable, 'tId': trip.id}
+            )
+            session.commit()
 
             btDetail = GetTripDetails(
                 id=trip.id,
                 operator=bus_data.operator,
+                bus_id=bus_data.id,
                 air_type=bus_data.air_type,
                 seat_type=bus_data.seat_type,
                 departure_time=trip.departure_time,
                 arrival_time=trip.arrival_time,
                 rating=bus_data.rating,
                 price=trip.price,
-                seatsAvailable=trip.seatsAvailable
+                seatsAvailable=seatsAvailable
             )
             busTripDetails.append(btDetail)
         

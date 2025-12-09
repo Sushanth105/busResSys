@@ -18,79 +18,108 @@ router = APIRouter(prefix="/booking", tags=['Booking'])
 
 @router.post("/add")
 def addBooking(
-    detail: AddBookingDetail, 
+    detail: List[AddBookingDetail],
     session: Session = Depends(getSession),
     email: str = Depends(get_current_user)
 ):
     try:
-        # 1. Get User (Keep this ORM as per your snippet)
-        user = session.exec(select(Users).where(Users.email == email)).first()
+        # This is fine because it is a SQLModel select
+        user = session.exec(
+            select(Users).where(Users.email == email)
+        ).first()
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # 2. GET TRIP DATA FIRST (Validation)
-        # We must check if seats are available BEFORE we insert the booking.
-        # Using raw SQL as requested.
-        trip_row = session.exec(
-            text("select seatsAvailable from trips where id=:tId"),
-            params={'tId': detail.trip_id}
-        ).first()
+        for d in detail:
+            # 1. Check if already booked
+            # Use session.execute() for raw SQL with parameters
+            seat_exists = session.execute(
+                text("""
+                SELECT id FROM tripseats 
+                WHERE seat_id = :s AND trip_id = :t
+                """),
+                params={"s": d.seat_id, "t": d.trip_id}
+            ).first()
 
-        if not trip_row:
-            raise HTTPException(status_code=404, detail="Trip not found")
+            if seat_exists:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Seat {d.seat_id} is already booked for trip {d.trip_id}"
+                )
 
-        # Access the column from the raw row
-        current_seats = trip_row.seatsAvailable 
+            # 2. Insert TripSeat and RETURN ID
+            # Use session.execute()
+            trip_seat_id = session.execute(
+                text("""
+                INSERT INTO tripseats(seat_id, trip_id)
+                VALUES (:s, :t)
+                RETURNING id
+                """),
+                params={"s": d.seat_id, "t": d.trip_id}
+            ).one()[0]
+            # Get seat label for booking record
+            sl = session.exec(
+                text("select seat_label from seats where id = :sId"),
+                params={"sId": d.seat_id}
+            ).first().seat_label
 
-        if current_seats < detail.passenger_count:
-            raise HTTPException(status_code=400, detail="Not enough seats available")
+            # 3. Insert booking
+            # Use session.execute()
+            session.execute(
+                text("""
+                INSERT INTO bookings(user_id, trip_id, trip_seat_id,seat_label, price, date, booking_status)
+                VALUES (:u, :t, :ts,:sl, :p, :d, :bs)
+                """),
+                params={
+                    "u": user.id,
+                    "t": d.trip_id,
+                    "ts": trip_seat_id,
+                    "sl": sl,
+                    "p": d.price,
+                    "d": datetime.now(),
+                    "bs": BookingStatus.UPCOMING.value
+                }
+            )
 
-        # 3. INSERT BOOKING (Raw SQL)
-        session.exec(
-            text("insert into bookings(user_id, trip_id, total_price, passenger_count, date, booking_status) values(:e1, :e2, :e3, :e4, :e5, :e6)"),
-            params={
-                'e1': user.id,
-                'e2': detail.trip_id,
-                'e3': detail.price * detail.passenger_count,
-                'e4': detail.passenger_count,
-                'e5': datetime.now(),
-                'e6': BookingStatus.UPCOMING.value # Ensure we insert the value (string), not the Enum object
-            }
-        )
-
-        # 4. UPDATE TRIPS (Raw SQL)
-        # We update the seats using the value we fetched earlier.
-        session.exec(
-            text("Update trips set seatsAvailable=:data where id=:tId"),
-            params={
-                'data': current_seats - detail.passenger_count,
-                'tId': detail.trip_id
-            }
-        )
-
-        # 5. COMMIT FINAL TRANSACTION
-        # Only commit AFTER both the Insert and Update are successful.
+        # Commit ONCE (atomic)
         session.commit()
-        
-        return {"message": "Booking data added", 'data': detail}
-    
-    except HTTPException as he:
-        # Re-raise HTTP exceptions (like 400 or 404) so the frontend gets the right message
-        raise he
+
+        return {"message": "Booking data added", "data": detail}
+
+    except HTTPException:
+        raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to add booking: {str(e)}")
+        # It's good practice to log the error here
+        print(f"Error: {e}") 
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to add booking: {str(e)}"
+        )
+
 
 
 @router.get('/get')
-def getBooking(session: Session = Depends(getSession),email: str = Depends(get_current_user)):
+def getBooking(email:str = Depends(get_current_user),session: Session = Depends(getSession)):
     try:
-        data: List[Bookings] = session.exec(text("select * from bookings")).all()
+        
+        user = session.exec(
+            select(Users).where(Users.email == email)
+        ).first()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        data: List[Bookings] = session.exec(
+            text("select * from bookings where user_id=:uId"),
+            params={'uId': user.id}
+            ).all()
         
         bookingDetail: List[CompleteBookingDetail] = []
         
-        for b in data:
-            trip: Trips = session.exec(text("select * from trips where id=:tId"), params={'tId': b.trip_id}).first()
+        for d in data:
+            trip: Trips = session.exec(text("select * from trips where id=:tId"), params={'tId': d.trip_id}).first()
             
             if not trip:
                 continue # Skip if trip data is missing
@@ -102,18 +131,18 @@ def getBooking(session: Session = Depends(getSession),email: str = Depends(get_c
             route: GetRouteDetail = route_response['data']
             
             cBDetail = CompleteBookingDetail(
-                id=b.id,
-                booking_status=b.booking_status,
+                id=d.id,
+                booking_status=d.booking_status,
                 operator=bus.operator,
                 air_type=bus.air_type,
                 seat_type=bus.seat_type,
                 start_city=route.start_city,
                 end_city=route.end_city,
-                date=b.date,
+                date=d.date,
                 departure_time=trip.departure_time,
                 arrival_time=trip.arrival_time,
-                total_price=b.total_price,
-                passenger_count=b.passenger_count
+                price=d.price,
+                seat_label=d.seat_label
             )
             
             bookingDetail.append(cBDetail)
@@ -134,6 +163,11 @@ def cancelBook(bId: int, session: Session = Depends(getSession),email: str = Dep
             "status": BookingStatus.CANCELLED.value, # Fixed typo: CACELLED -> CANCELLED
             "bId": bId
         }
+    )
+    
+    session.exec(
+        text("delete from tripseats where id = (select trip_seat_id from bookings where id = :bId)"),
+        params={"bId": bId}
     )
     
     session.commit()

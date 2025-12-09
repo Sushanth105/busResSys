@@ -53,7 +53,7 @@ def getRouteBySE(start_city: str,end_city: str, session: Session = Depends(getSe
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     
 @router.post('/add')
-def addBus(routeDeatil: AddRouteDetail, session: Session = Depends(getSession)):
+def addRoute(routeDeatil: AddRouteDetail, session: Session = Depends(getSession)):
     try:
         session.exec(
             text("insert into routes(start_city,end_city,distance_km) values(:e1,:e2,:e3)"),

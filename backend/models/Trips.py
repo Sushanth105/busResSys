@@ -14,3 +14,4 @@ class Trips(SQLModel, table=True):
     bus: Optional["Buses"] = Relationship(back_populates="trips") # type: ignore
     route: Optional["Routes"] = Relationship(back_populates="trips") # type: ignore
     bookings: List['Bookings'] = Relationship(back_populates='trip',cascade_delete=True) # type: ignore
+    trip_seats: List["TripSeats"] = Relationship(back_populates="trip" , cascade_delete=True) # type: ignore

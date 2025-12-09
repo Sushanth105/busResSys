@@ -7,19 +7,20 @@ import { useRouter } from 'next/navigation';
 
 // --- Types ---
 
+// 1. Updated Interface matching your specific API JSON response
 interface BackendBooking {
   id: number;
   booking_status: string;
   operator: string;
   air_type: string;
   seat_type: string;
+  seat_label: string;      // Added
   start_city: string;
   end_city: string;
   date: string;
   departure_time: string;
   arrival_time: string;
-  total_price: number;
-  passenger_count: number;
+  price: number;           // Changed from total_price
 }
 
 interface UIBooking {
@@ -58,11 +59,14 @@ const MyBookingsPage = () => {
 
   const formatTime = (timeString: string) => {
     try {
-      const date = new Date(timeString);
-      if(isNaN(date.getTime())) {
-        return timeString.slice(0, 5); 
+      // Handle "HH:MM:SS" strings manually if needed, or rely on Date parsing
+      // If passing just time string to Date constructor fails in some browsers, we append a dummy date.
+      if (timeString.includes('T')) {
+          const date = new Date(timeString);
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       }
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      // Simple substring fallback for pure "17:10:00" strings
+      return timeString.slice(0, 5); 
     } catch (e) { return timeString; }
   };
 
@@ -77,7 +81,7 @@ const MyBookingsPage = () => {
       });
 
       if (response.status === 403 || response.status === 401) {
-        const refreshRes = await fetch("http://localhost:8000/refresh", {
+        const refreshRes = await fetch(`${API_BASE_URL}/refresh`, {
           method: "POST",
           credentials: "include",
         });
@@ -97,6 +101,7 @@ const MyBookingsPage = () => {
       
       const result = await response.json();
       
+      // Map the individual seat objects to the UI format
       const mappedData: UIBooking[] = result.data.map((item: BackendBooking) => ({
         id: item.id,
         status: item.booking_status.toLowerCase(),
@@ -107,13 +112,16 @@ const MyBookingsPage = () => {
         date: formatDate(item.date),
         departureTime: formatTime(item.departure_time),
         arrivalTime: formatTime(item.arrival_time),
-        totalAmount: item.total_price,
-        passengerCount: item.passenger_count,
-        seatNumbers: ["--"], 
-        pnr: `PNR-${item.id}${Math.floor(Math.random() * 1000)}`
+        totalAmount: item.price,
+        passengerCount: 1, // API returns individual seats, so 1 passenger per object
+        seatNumbers: [item.seat_label], 
+        pnr: `PNR-${item.id}` // Using ID as pseudo-PNR
       }));
 
+      // Optional: If you wanted to group them by Trip later, you would do it here. 
+      // For now, we display them as individual tickets as per the API structure.
       setBookings(mappedData);
+
     } catch (err) {
       console.error(err);
       setError("Could not load booking history.");
@@ -138,8 +146,9 @@ const MyBookingsPage = () => {
       });
 
       if (response.status === 403 || response.status === 401) {
-           const refreshRes = await fetch("http://localhost:8000/refresh", { method: "POST", credentials: "include" });
+           const refreshRes = await fetch(`${API_BASE_URL}/refresh`, { method: "POST", credentials: "include" });
            if (!refreshRes.ok) { router.push("/login"); return; }
+           
            response = await fetch(`${API_BASE_URL}/booking/cancel/${bookingId}`, {
               method: 'POST', 
               credentials: 'include'
@@ -269,29 +278,29 @@ const MyBookingsPage = () => {
                       {/* Meta Info */}
                       <div className="flex flex-row md:flex-col justify-between w-full md:w-auto gap-4 md:gap-1 text-sm">
                           <div className="flex items-center text-gray-600">
-                             <span className="font-semibold mr-2">Seat No:</span> 
-                             <span className="text-gray-900 font-bold">{booking.seatNumbers.join(", ")}</span>
+                             <span className="font-semibold mr-2">Seat:</span> 
+                             <span className="text-gray-900 font-bold">{booking.seatNumbers[0]}</span>
                           </div>
                           <div className="flex items-center text-gray-600">
-                             <span className="font-semibold mr-2">PNR:</span> 
+                             <span className="font-semibold mr-2">ID:</span> 
                              <span className="text-gray-900">{booking.pnr}</span>
                           </div>
                           <div className="flex items-center text-gray-600">
-                             <span className="font-semibold mr-2">Total:</span> 
+                             <span className="font-semibold mr-2">Price:</span> 
                              <span className="text-blue-600 font-bold">₹{booking.totalAmount}</span>
                           </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Card Footer: Actions (Only shown for Upcoming tickets now) */}
+                  {/* Card Footer: Actions */}
                   {booking.status === 'upcoming' && (
                     <div className="px-6 py-3 border-t border-dashed border-gray-200 flex flex-wrap gap-3 justify-end bg-gray-50/50">
                       <button 
                         onClick={() => handleCancelTicket(booking.id)}
                         className="text-sm text-red-500 font-semibold hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
                       >
-                        Cancel Booking
+                        Cancel Ticket
                       </button>
                     </div>
                   )}

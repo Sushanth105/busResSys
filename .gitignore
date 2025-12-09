@@ -3,6 +3,7 @@
 # dependencies
 frontend/node_modules
 /backend/menv
+/backend/*sql
 /.pnp
 .pnp.*
 .yarn/*

@@ -3,6 +3,7 @@ from sqlmodel import Session, text
 from database import getSession
 from models.Buses import Buses
 from dto.busDto import GetBusDetail, AddBusDetail
+import random
 
 router = APIRouter(prefix="/buses", tags=['Buses'])
 
@@ -62,7 +63,7 @@ def getBusByNumber(busNumber: str, session: Session = Depends(getSession)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post('/')
+@router.post('/add')
 def addBus(busDeatil: AddBusDetail, session: Session = Depends(getSession)):
     try:
         session.exec(
@@ -77,8 +78,44 @@ def addBus(busDeatil: AddBusDetail, session: Session = Depends(getSession)):
             }
         )
         session.commit()
-        return {"message": "bus data added", 'data': busDeatil}
     
+        count = busDeatil.total_seat
+        i=1
+        while(count > 0):
+            rand = random.randint(1, 2)
+            if count == 1 or rand == 1 :
+                seat_label = f"{i}A"
+                i+=1
+                count-=1
+                session.exec(
+                    text("insert into seats(seat_label,bus_id) values(:sLabel,(select id from buses where bus_number=:bNumber))"),
+                    params={
+                        'sLabel': seat_label,
+                        'bNumber': busDeatil.bus_number
+                    }
+                )
+            else:
+                seat_label1 = f"{i}A"
+                seat_label2 = f"{i}B"
+                i+=1
+                count-=2
+                session.exec(
+                    text("insert into seats(seat_label,bus_id) values(:sLabel1,(select id from buses where bus_number=:bNumber))"),
+                    params={
+                        'sLabel1': seat_label1,
+                        'bNumber': busDeatil.bus_number
+                    }
+                )
+                session.exec(
+                    text("insert into seats(seat_label,bus_id) values(:sLabel2,(select id from buses where bus_number=:bNumber))"),
+                    params={
+                        'sLabel2': seat_label2,
+                        'bNumber': busDeatil.bus_number
+                    }
+                )
+        session.commit()
+    
+        return {"message": "bus data added", 'data': busDeatil}
     except Exception as e:
         # Important: Rollback the session if an error occurs (e.g., duplicate entry)
         session.rollback()

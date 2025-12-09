@@ -4,6 +4,8 @@ from routers.busRouter import router as busRouter
 from routers.routeRouter import router as routeRouter
 from routers.tripRouter import router as tripRouter
 from routers.bookingRouter import router as bookingRouter
+from routers.seatRouter import router as seatRouter
+from routers.tripSeatRouter import router as tripSeatRouter
 from database import create_db_and_tables
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session,select
@@ -30,6 +32,8 @@ app.include_router(busRouter)
 app.include_router(routeRouter)
 app.include_router(tripRouter)
 app.include_router(bookingRouter)
+app.include_router(seatRouter)
+app.include_router(tripSeatRouter)
 
 student = [
     {

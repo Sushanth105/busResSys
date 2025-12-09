@@ -5,8 +5,8 @@ from datetime import datetime,time
 
 class AddBookingDetail(BaseModel):
     trip_id: int
-    passenger_count: int
     price: int
+    seat_id: int
     
 class CompleteBookingDetail(BaseModel):
     id: int
@@ -14,10 +14,10 @@ class CompleteBookingDetail(BaseModel):
     operator: str
     air_type: BusAirType
     seat_type: BusSeatType
+    seat_label: str
     start_city: str
     end_city: str
     date: datetime
     departure_time: time
     arrival_time: time
-    total_price: int
-    passenger_count: int
+    price: int

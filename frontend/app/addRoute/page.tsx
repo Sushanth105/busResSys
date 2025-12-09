@@ -2,15 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  BusFront, Hash, Armchair, 
-  Save, ArrowLeft, CheckCircle, AlertCircle, Loader2, Star
+  MapPin, Route as RouteIcon, Save, ArrowLeft, 
+  CheckCircle, AlertCircle, Loader2 
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 const API_BASE_URL = "http://localhost:8000";
 
-export default function AddBusPage() {
+export default function AddRoutePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -19,14 +19,11 @@ export default function AddBusPage() {
   const [profile, setProfile] = useState({ name: "", email: "", role: "" });
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Form State - Matched to your new Schema
+  // Form State
   const [formData, setFormData] = useState({
-    operator: "",
-    bus_number: "",
-    air_type: "AC",        // Default
-    seat_type: "Sleeper",  // Default
-    total_seat: "",
-    rating: "0"           // Default rating
+    start_city: "",
+    end_city: "",
+    distance_km: ""
   });
 
   // --- 1. Check User Role & Auth ---
@@ -71,14 +68,13 @@ export default function AddBusPage() {
 
   // --- 2. Protect Route ---
   useEffect(() => {
-    // Only allow non-users (admins/staff) to access this page
     if (authChecked && profile.role === "user") {
         router.push('/');
     }
   }, [profile, authChecked, router]);
 
   // --- 3. Handlers ---
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -89,19 +85,16 @@ export default function AddBusPage() {
     setMessage(null);
 
     try {
-      // Prepare Payload matching the requested schema
+      // Prepare Payload matching the schema
       const payload = {
-        operator: formData.operator,
-        bus_number: formData.bus_number,
-        air_type: formData.air_type,
-        seat_type: formData.seat_type,
-        total_seat: Number(formData.total_seat),
-        rating: Number(formData.rating)
-      };  
+        start_city: formData.start_city,
+        end_city: formData.end_city,
+        distance_km: Number(formData.distance_km)
+      };
 
       console.log("Sending Payload:", payload); 
 
-      let response = await fetch(`${API_BASE_URL}/buses/add`, {
+      let response = await fetch(`${API_BASE_URL}/routes/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -120,8 +113,8 @@ export default function AddBusPage() {
              return; 
          }
          
-         // Retry original request
-         response = await fetch(`${API_BASE_URL}/buses/add`, {
+         // Retry
+         response = await fetch(`${API_BASE_URL}/routes/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -131,20 +124,17 @@ export default function AddBusPage() {
 
       if (!response.ok) {
         const err = await response.json();
-        const errorDetails = err.detail ? JSON.stringify(err.detail) : "Failed to create bus";
+        const errorDetails = err.detail ? JSON.stringify(err.detail) : "Failed to create route";
         throw new Error(errorDetails);
       }
 
-      setMessage({ type: 'success', text: "Bus added successfully!" });
+      setMessage({ type: 'success', text: "Route added successfully!" });
       
       // Reset form
       setFormData({
-        operator: "", 
-        bus_number: "", 
-        air_type: "AC", 
-        seat_type: "Sleeper", 
-        total_seat: "", 
-        rating: "0"
+        start_city: "",
+        end_city: "",
+        distance_km: ""
       });
 
     } catch (error: unknown) {
@@ -188,7 +178,7 @@ export default function AddBusPage() {
           <Link href="/" className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-100 mr-4 transition">
             <ArrowLeft size={20} className="text-gray-600"/>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Add New Bus</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Add New Route</h1>
         </div>
 
         {/* Form Card */}
@@ -203,64 +193,59 @@ export default function AddBusPage() {
 
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
             
-            {/* Bus Details Section */}
+            {/* Route Details */}
             <div className="space-y-4">
-              <h2 className="text-sm uppercase tracking-wide text-gray-500 font-bold border-b pb-2">Bus Details</h2>
+              <h2 className="text-sm uppercase tracking-wide text-gray-500 font-bold border-b pb-2">Route Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* Operator */}
+                {/* Start City */}
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700 flex items-center">
-                    <BusFront size={16} className="mr-2 text-blue-600"/> Operator Name
+                    <MapPin size={16} className="mr-2 text-green-600"/> From (Start City)
                   </label>
-                  <input type="text" name="operator" required placeholder="e.g. VRL Travels" value={formData.operator} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"/>
-                </div>
-
-                {/* Bus Number */}
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700 flex items-center">
-                    <Hash size={16} className="mr-2 text-blue-600"/> Bus Number
-                  </label>
-                  <input type="text" name="bus_number" required placeholder="e.g. KA-19-AB-1234" value={formData.bus_number} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"/>
-                </div>
-
-                {/* Air Type */}
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">AC / Non-AC</label>
-                  <select name="air_type" value={formData.air_type} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                    <option value="AC">AC</option>
-                    <option value="NON_AC">Non-AC</option> 
-                  </select>
-                </div>
-
-                {/* Seat Type */}
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Seat Type</label>
-                  <select 
-                    name="seat_type" 
-                    value={formData.seat_type} 
+                  <input 
+                    type="text" 
+                    name="start_city" 
+                    required 
+                    placeholder="e.g. Bangalore" 
+                    value={formData.start_city} 
                     onChange={handleChange} 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                  >
-                    <option value="Sleeper">Sleeper</option>
-                    <option value="Seater">Seater</option>
-                  </select>
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  />
                 </div>
 
-                {/* Total Seats */}
+                {/* End City */}
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700 flex items-center">
-                    <Armchair size={16} className="mr-2 text-blue-600"/> Total Seats
+                    <MapPin size={16} className="mr-2 text-red-600"/> To (End City)
                   </label>
-                  <input type="number" name="total_seat" required min="1" placeholder="e.g. 30" value={formData.total_seat} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+                  <input 
+                    type="text" 
+                    name="end_city" 
+                    required 
+                    placeholder="e.g. Mumbai" 
+                    value={formData.end_city} 
+                    onChange={handleChange} 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  />
                 </div>
 
-                {/* Rating (Optional default 0) */}
-                <div className="space-y-1">
+                {/* Distance KM */}
+                <div className="space-y-1 md:col-span-2">
                   <label className="text-sm font-semibold text-gray-700 flex items-center">
-                    <Star size={16} className="mr-2 text-yellow-500"/> Initial Rating
+                    <RouteIcon size={16} className="mr-2 text-blue-600"/> Distance (km)
                   </label>
-                  <input type="number" name="rating" min="0" max="5" step="0.1" placeholder="0" value={formData.rating} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"/>
+                  <input 
+                    type="number" 
+                    name="distance_km" 
+                    required 
+                    min="1"
+                    step="0.1"
+                    placeholder="e.g. 980" 
+                    value={formData.distance_km} 
+                    onChange={handleChange} 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
                 </div>
 
               </div>
@@ -269,7 +254,7 @@ export default function AddBusPage() {
             {/* Submit Button */}
             <div className="pt-4 flex justify-end">
               <button type="submit" disabled={loading} className="flex items-center bg-blue-600 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-blue-300">
-                {loading ? <><Loader2 className="animate-spin mr-2" size={20}/> Processing...</> : <><Save className="mr-2" size={20}/> Save Bus</>}
+                {loading ? <><Loader2 className="animate-spin mr-2" size={20}/> Processing...</> : <><Save className="mr-2" size={20}/> Save Route</>}
               </button>
             </div>
 
